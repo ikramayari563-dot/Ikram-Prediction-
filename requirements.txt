@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+pandas
+numpy
+scikit-learn
+motor
+pydantic
+imbalanced-learn
+python-dotenv
+pymongo
+python-multipart
+fpdf
+fastapi-mail
+python-dotenv

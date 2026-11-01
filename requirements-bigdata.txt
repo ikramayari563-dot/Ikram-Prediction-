@@ -1,0 +1,4 @@
+# Dépendances pour la partie Big Data (traitement distribué Apache Spark).
+# Installation séparée car pyspark est volumineux (~300 Mo).
+#   pip install -r requirements-bigdata.txt
+pyspark

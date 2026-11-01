@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="fr" x-data="fraudApp()" x-init="init()">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ikram Prediction - Dark Pastel Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #0f172a; color: #f8fafc; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .card { background: #1e293b; border: 1px solid #334155; border-radius: 24px; position: relative; }
+        .pastel-violet { color: #c4b5fd; }
+        .bg-pastel-violet { background-color: #7c3aed; }
+        .border-pastel-violet { border-color: #a78bfa; }
+        [x-cloak] { display: none !important; }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Écran d'authentification : accès à l'application réservé aux comptes -->
+    <div x-show="!authUser" x-cloak class="min-h-screen flex items-center justify-center px-6">
+        <div class="w-full max-w-md">
+            <div class="text-center mb-10">
+                <div class="inline-flex bg-pastel-violet p-4 rounded-2xl text-white shadow-lg shadow-violet-900/20 mb-6">
+                    <i class="fas fa-shield-virus text-3xl"></i>
+                </div>
+                <h1 class="text-3xl font-black">IKRAM <span class="pastel-violet">PREDICTION</span></h1>
+                <p class="text-slate-500 mt-2" x-text="authMode === 'login' ? 'Connectez-vous pour accéder à la plateforme' : 'Créez un compte pour accéder à la plateforme'"></p>
+            </div>
+
+            <div class="card p-10">
+                <div class="flex p-1 bg-slate-800 rounded-2xl mb-8">
+                    <button @click="authMode = 'login'; authError = ''" :class="authMode === 'login' ? 'bg-pastel-violet text-white' : 'text-slate-400'" class="flex-1 py-3 rounded-xl font-bold text-sm transition">Connexion</button>
+                    <button @click="authMode = 'register'; authError = ''" :class="authMode === 'register' ? 'bg-pastel-violet text-white' : 'text-slate-400'" class="flex-1 py-3 rounded-xl font-bold text-sm transition">Inscription</button>
+                </div>
+
+                <form @submit.prevent="authMode === 'login' ? doLogin() : doRegister()" class="space-y-6">
+                    <div x-show="authMode === 'register'">
+                        <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Nom d'utilisateur</label>
+                        <input type="text" x-model="authForm.username" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-violet-500 transition outline-none" placeholder="ex: ikram">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Email</label>
+                        <input type="email" x-model="authForm.email" required class="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-violet-500 transition outline-none" placeholder="vous@exemple.com">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Mot de passe</label>
+                        <input type="password" x-model="authForm.password" required class="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-violet-500 transition outline-none" placeholder="6 caractères minimum">
+                    </div>
+
+                    <p x-show="authError" x-text="authError" class="text-red-400 text-sm font-semibold"></p>
+
+                    <button type="submit" :disabled="authLoading" class="w-full bg-pastel-violet py-4 rounded-2xl font-black text-white hover:bg-violet-600 transition shadow-xl shadow-violet-900/20 disabled:opacity-50">
+                        <span x-text="authLoading ? 'Veuillez patienter...' : (authMode === 'login' ? 'Se connecter' : 'Créer un compte')"></span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav x-show="authUser" x-cloak class="sticky top-0 z-50 glass border-b border-slate-800">
+        <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3 cursor-pointer" @click="page = 'home'">
+                <div class="bg-pastel-violet p-2.5 rounded-xl text-white shadow-lg shadow-violet-900/20">
+                    <i class="fas fa-shield-virus text-xl"></i>
+                </div>
+                <h1 class="text-xl font-extrabold tracking-tight">IKRAM <span class="pastel-violet font-black">PREDICTION</span></h1>
+            </div>
+            
+            <div class="hidden md:flex space-x-8 font-semibold text-slate-400">
+                <button @click="page = 'home'" :class="page === 'home' ? 'pastel-violet text-lg' : 'hover:text-violet-300'" class="transition-all duration-300">Accueil</button>
+                <button @click="changePage('dashboard')" :class="page === 'dashboard' ? 'pastel-violet text-lg' : 'hover:text-violet-300'" class="transition-all duration-300">Analytique</button>
+                <button @click="openHistory()" :class="page === 'history' ? 'pastel-violet text-lg' : 'hover:text-violet-300'" class="transition-all duration-300">Historique</button>
+                <button @click="openManual()" :class="page === 'manual' ? 'pastel-violet text-lg' : 'hover:text-violet-300'" class="transition-all duration-300">Saisie Manuelle</button>
+                <button @click="page = 'audit'" :class="page === 'audit' ? 'pastel-violet text-lg' : 'hover:text-violet-300'" class="transition-all duration-300">Audit</button>
+                <button @click="fetchModels()" :class="page === 'models' ? 'pastel-violet text-lg' : 'hover:text-violet-300'" class="transition-all duration-300">Modèles</button>
+            </div>
+
+            <div class="flex items-center space-x-4">
+                <div class="hidden sm:flex items-center space-x-3 bg-slate-800/50 px-4 py-2 rounded-full border border-slate-700">
+                    <i class="fas fa-user-circle pastel-violet"></i>
+                    <span class="text-xs font-bold text-slate-300" x-text="authUser ? authUser.username : ''"></span>
+                </div>
+                <button @click="doLogout()" title="Se déconnecter" class="flex items-center space-x-2 bg-slate-800/50 hover:bg-red-500/20 hover:border-red-500/40 px-4 py-2 rounded-full border border-slate-700 transition text-slate-400 hover:text-red-300">
+                    <i class="fas fa-right-from-bracket text-xs"></i>
+                    <span class="text-[10px] font-black uppercase tracking-[0.2em]">Déconnexion</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main x-show="authUser" x-cloak class="container mx-auto px-6 py-12">
+        
+        <!-- PAGE: VITRINE (HOME) -->
+        <section x-show="page === 'home'" x-cloak x-transition>
+            <div class="flex flex-col lg:flex-row items-center gap-20 mb-32">
+                <div class="lg:w-3/5">
+                    <span class="bg-violet-900/30 text-violet-300 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-6 inline-block border border-violet-800/50">Next-Gen Fraud Detection</span>
+                    <h2 class="text-6xl lg:text-8xl font-black leading-[1.1] mb-8">
+                        Sécurisez vos <span class="pastel-violet">flux financiers</span> par l'IA.
+                    </h2>
+                    <p class="text-slate-400 text-xl leading-relaxed mb-12 max-w-2xl">
+                        Ikram Prediction combine le Machine Learning supervisé et le Data Mining pour identifier les comportements frauduleux avec une précision inégalée.
+                    </p>
+                    <div class="flex flex-wrap gap-6">
+                        <button @click="changePage('dashboard')" class="bg-pastel-violet text-white px-10 py-5 rounded-2xl font-bold shadow-2xl shadow-violet-900/40 hover:scale-105 transition transform active:scale-95">
+                            Explorer le Dashboard
+                        </button>
+                        <button @click="page = 'predict'" class="bg-slate-800 text-white px-10 py-5 rounded-2xl font-bold border border-slate-700 hover:bg-slate-700 transition">
+                            Tester un flux
+                        </button>
+                    </div>
+                </div>
+                <div class="lg:w-2/5 relative">
+                    <div class="absolute -inset-4 bg-violet-500/20 blur-3xl rounded-full"></div>
+                    <div class="card p-10 relative z-10 border-violet-500/20">
+                        <div class="space-y-8">
+                            <div class="flex items-start space-x-4">
+                                <div class="bg-violet-500/20 p-3 rounded-xl text-violet-400"><i class="fas fa-bolt"></i></div>
+                                <div><h4 class="font-bold">Détection < 10ms</h4><p class="text-sm text-slate-500">Analyse ultra-rapide des flux entrants.</p></div>
+                            </div>
+                            <div class="flex items-start space-x-4">
+                                <div class="bg-emerald-500/20 p-3 rounded-xl text-emerald-400"><i class="fas fa-check-double"></i></div>
+                                <div><h4 class="font-bold">Précision 99.9%</h4><p class="text-sm text-slate-500">Optimisé par Random Forest & SMOTE.</p></div>
+                            </div>
+                            <div class="flex items-start space-x-4">
+                                <div class="bg-amber-500/20 p-3 rounded-xl text-amber-400"><i class="fas fa-fingerprint"></i></div>
+                                <div><h4 class="font-bold">Audit Comportemental</h4><p class="text-sm text-slate-500">Clustering K-Means des utilisateurs.</p></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODAL: DÉTAILS TRANSACTION (V1-V28) -->
+            <div x-show="selectedTx" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-sm">
+                <div @click.away="selectedTx = null" class="card w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+                    <div class="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                        <div>
+                            <h3 class="text-xl font-black pastel-violet" x-text="'Détails ' + (selectedTx?.transaction_id || '')"></h3>
+                            <p class="text-xs text-slate-500 mt-1" x-text="'ID Base : ' + selectedTx?._id"></p>
+                        </div>
+                        <button @click="selectedTx = null" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 transition flex items-center justify-center text-slate-400">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="p-8 overflow-y-auto custom-scrollbar flex-1">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+                            <!-- Infos Générales -->
+                            <div>
+                                <h4 class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">Informations Générales</h4>
+                                <div class="space-y-4">
+                                    <div class="flex justify-between py-3 border-b border-slate-800/50">
+                                        <span class="text-slate-500 text-sm">Utilisateur</span>
+                                        <span class="font-bold text-slate-200" x-text="selectedTx?.user_id + ' (' + (selectedTx?.first_name || '') + ' ' + (selectedTx?.last_name || '') + ')'"></span>
+                                    </div>
+                                    <div class="flex justify-between py-3 border-b border-slate-800/50">
+                                        <span class="text-slate-500 text-sm">Montant</span>
+                                        <span class="font-bold text-emerald-400" x-text="(selectedTx?.amount || selectedTx?.Amount || 0).toFixed(2) + ' €'"></span>
+                                    </div>
+                                    <div class="flex justify-between py-3 border-b border-slate-800/50">
+                                        <span class="text-slate-500 text-sm">Date</span>
+                                        <span class="font-bold text-slate-200" x-text="new Date(selectedTx?.timestamp).toLocaleString()"></span>
+                                    </div>
+                                    <div class="flex justify-between py-3 border-b border-slate-800/50">
+                                        <span class="text-slate-500 text-sm">Score de Risque</span>
+                                        <span class="font-bold text-violet-400" x-text="((selectedTx?.risk_score || 0) * 100).toFixed(2) + '%'"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Features PCA -->
+                            <div>
+                                <h4 class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6">Variables V1 - V28 (PCA)</h4>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    <template x-for="i in 28" :key="'v_det_'+i">
+                                        <div class="bg-slate-800/40 p-2.5 rounded-lg border border-slate-700/50">
+                                            <div class="text-[8px] font-black text-slate-500 uppercase mb-1" x-text="'V' + i"></div>
+                                            <div class="text-xs font-mono text-slate-300" x-text="Number(selectedTx ? selectedTx['V'+i] : 0).toFixed(4)"></div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PAGE: DASHBOARD -->
+        <section x-show="page === 'dashboard'" x-cloak x-transition>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
+                <div class="card p-8">
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Total Transactions</p>
+                    <h3 class="text-4xl font-black" x-text="stats.total.toLocaleString()">0</h3>
+                </div>
+                <div class="card p-8 border-red-500/20">
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 text-red-400">Transactions Suspectes</p>
+                    <h3 class="text-4xl font-black text-red-500" x-text="stats.frauds.toLocaleString()">0</h3>
+                </div>
+                <div class="card p-8 border-emerald-500/20">
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 text-emerald-400">Montants (€)</p>
+                    <h3 class="text-4xl font-black text-emerald-500" x-text="stats.amount.toLocaleString() + ' €'">0</h3>
+                </div>
+                <div class="card p-8 border-amber-500/20">
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 text-amber-400">Utilisateurs Atypiques</p>
+                    <h3 class="text-4xl font-black text-amber-500" x-text="stats.anomaliesCount">0</h3>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+                <div class="card p-8">
+                    <h4 class="font-bold mb-8 pastel-violet">Évolution des Fraudes dans le Temps</h4>
+                    <div class="h-[300px]"><canvas id="hourlyChart"></canvas></div>
+                </div>
+                <div class="card p-8">
+                    <h4 class="font-bold mb-8 pastel-violet">Comportements Inhabituels (Clusters)</h4>
+                    <div class="h-[300px]"><canvas id="clusterChart"></canvas></div>
+                </div>
+            </div>
+
+            <div class="card p-8 overflow-hidden">
+                <h4 class="font-bold mb-8">Profils Utilisateurs Suspects</h4>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-800">
+                            <tr>
+                                <th class="pb-6 px-4">Utilisateur</th>
+                                <th class="pb-6 px-4 text-right">Moyenne (€)</th>
+                                <th class="pb-6 px-4 text-right">Total (€)</th>
+                                <th class="pb-6 px-4 text-center">Volume TX</th>
+                                <th class="pb-6 px-4 text-center">Statut IA</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800">
+                            <template x-for="user in anomalies" :key="user.user_id">
+                                <tr class="hover:bg-slate-800/30 transition">
+                                    <td class="py-6 px-4 font-bold text-slate-300" x-text="user.user_id"></td>
+                                    <td class="py-6 px-4 text-right text-slate-400" x-text="user.avg_amount.toFixed(2)"></td>
+                                    <td class="py-6 px-4 text-right text-slate-400" x-text="user.total_amount.toFixed(2)"></td>
+                                    <td class="py-6 px-4 text-center text-slate-400" x-text="user.trans_count"></td>
+                                    <td class="py-6 px-4 text-center">
+                                        <span class="bg-amber-500/10 text-amber-500 text-[9px] font-black px-3 py-1.5 rounded-full border border-amber-500/20 uppercase">Inhabituel</span>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- PAGE: LIVE TEST (PREDICT) -->
+        <section x-show="page === 'predict'" x-cloak x-transition>
+            <div class="max-w-3xl mx-auto">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl font-black mb-4">Test de Classification en Direct</h2>
+                    <p class="text-slate-500">Simulez une nouvelle transaction pour obtenir un diagnostic instantané.</p>
+                </div>
+                
+                <div class="card p-10">
+                    <form @submit.prevent="runPrediction()" class="space-y-8">
+                        <div class="grid grid-cols-2 gap-8">
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">ID Utilisateur</label>
+                                <input type="text" x-model="testTx.user_id" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-violet-500 transition outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Montant (€)</label>
+                                <input type="number" x-model="testTx.Amount" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-violet-500 transition outline-none">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Temps (Secondes depuis début)</label>
+                            <input type="number" x-model="testTx.Time" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-violet-500 transition outline-none">
+                        </div>
+                        <button type="submit" class="w-full bg-pastel-violet py-5 rounded-2xl font-black text-white hover:bg-violet-600 transition shadow-xl shadow-violet-900/20">
+                            Analyser la Transaction
+                        </button>
+                    </form>
+
+                    <template x-if="predictionResult">
+                        <div class="mt-12 p-8 rounded-3xl border animate-in fade-in slide-in-from-bottom-4 duration-500" 
+                             :class="predictionResult.prediction === 1 ? 'bg-red-500/10 border-red-500/20' : 'bg-emerald-500/10 border-emerald-500/20'">
+                            <div class="flex items-center justify-between mb-6">
+                                <h5 class="text-xl font-black" :class="predictionResult.prediction === 1 ? 'text-red-500' : 'text-emerald-500'" 
+                                    x-text="predictionResult.prediction === 1 ? '⚠️ FRAUDE DÉTECTÉE' : '✅ TRANSACTION VALIDE'"></h5>
+                                <span class="px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest" 
+                                      :class="predictionResult.prediction === 1 ? 'bg-red-500 text-white' : 'bg-emerald-500 text-white'"
+                                      x-text="'RISQUE ' + predictionResult.risk_level"></span>
+                            </div>
+                            <p class="text-slate-400 text-sm">Score de probabilité de fraude : <span class="font-bold text-white" x-text="(predictionResult.risk_score * 100).toFixed(2) + '%'"></span></p>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </section>
+
+        <!-- PAGE: SAISIE MANUELLE -->
+        <section x-show="page === 'manual'" x-cloak x-transition>
+            <div class="max-w-5xl mx-auto">
+                <div class="text-center mb-12">
+                    <h2 class="text-3xl font-black mb-4">Ajouter une Transaction Manuelle</h2>
+                    <p class="text-slate-500">Saisissez tous les champs nécessaires pour analyser une transaction personnalisée.</p>
+                </div>
+
+                <div class="card p-10">
+                    <form @submit.prevent="submitManual()" class="space-y-8">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">ID Utilisateur</label>
+                                <input type="text" x-model="manualTx.user_id" placeholder="ex: U01234" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-violet-500 transition outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Prénom</label>
+                                <input type="text" x-model="manualTx.first_name" placeholder="Prénom" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-violet-500 transition outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Nom</label>
+                                <input type="text" x-model="manualTx.last_name" placeholder="Nom" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-violet-500 transition outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Montant (€)</label>
+                                <input type="number" step="0.01" x-model="manualTx.Amount" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-violet-500 transition outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Temps</label>
+                                <input type="number" step="1" x-model="manualTx.Time" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-violet-500 transition outline-none">
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between items-center mb-4">
+                                <h4 class="font-bold pastel-violet">Variables anonymisées V1 - V28 (issues de la PCA)</h4>
+                                <button type="button" @click="resetManualV()" class="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-violet-300 transition">Réinitialiser à 0</button>
+                            </div>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
+                                <template x-for="i in 28" :key="'V'+i">
+                                    <div>
+                                        <label class="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2" x-text="'V' + i"></label>
+                                        <input type="number" step="0.0001" x-model="manualTx.V_features['V'+i]" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm text-white focus:border-violet-500 transition outline-none">
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <button type="submit" :disabled="manualSubmitting" class="w-full bg-pastel-violet py-5 rounded-2xl font-black text-white hover:bg-violet-600 transition shadow-xl shadow-violet-900/20 disabled:opacity-50">
+                            <span x-text="manualSubmitting ? 'Analyse en cours...' : 'Analyser cette Transaction'"></span>
+                        </button>
+                    </form>
+
+                    <template x-if="manualResult">
+                        <div class="mt-12 p-8 rounded-3xl border animate-in fade-in slide-in-from-bottom-4 duration-500"
+                             :class="manualResult.prediction === 1 ? 'bg-red-500/10 border-red-500/20' : 'bg-emerald-500/10 border-emerald-500/20'">
+                            <div class="flex items-center justify-between mb-6">
+                                <h5 class="text-xl font-black" :class="manualResult.prediction === 1 ? 'text-red-500' : 'text-emerald-500'"
+                                    x-text="manualResult.prediction === 1 ? '⚠️ FRAUDE DÉTECTÉE' : '✅ TRANSACTION VALIDE'"></h5>
+                                <span class="px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest"
+                                      :class="manualResult.prediction === 1 ? 'bg-red-500 text-white' : 'bg-emerald-500 text-white'"
+                                      x-text="'RISQUE ' + manualResult.risk_level"></span>
+                            </div>
+                            <p class="text-slate-400 text-sm mb-2"><span class="font-bold text-white" x-text="manualResult.user_id"></span> — Montant : <span class="font-bold text-white" x-text="manualResult.amount"></span> €</p>
+                            <p class="text-slate-400 text-sm">Score de probabilité de fraude : <span class="font-bold text-white" x-text="(manualResult.risk_score * 100).toFixed(2) + '%'"></span></p>
+                            <p class="text-slate-500 text-xs mt-4">ID transaction : <span x-text="manualResult.transaction_id"></span></p>
+                            <p class="text-xs mt-3 font-bold" :class="manualSaved ? 'text-emerald-400' : 'text-amber-400'">
+                                <i class="fas" :class="manualSaved ? 'fa-database' : 'fa-triangle-exclamation'"></i>
+                                <span x-text="manualSaveMessage"></span>
+                            </p>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Transactions stockées en base -->
+                <div class="card p-8 mt-10 overflow-hidden">
+                    <div class="flex justify-between items-center mb-8">
+                        <h4 class="font-bold">Transactions enregistrées dans la base (MongoDB)</h4>
+                        <span class="bg-violet-900/30 text-violet-300 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-violet-800/50" x-text="dbTransactions.length + ' enregistrement(s)'"></span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead class="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-800">
+                                <tr>
+                                    <th class="pb-6 px-4">Transaction</th>
+                                    <th class="pb-6 px-4">Utilisateur</th>
+                                    <th class="pb-6 px-4 text-right">Montant</th>
+                                    <th class="pb-6 px-4 text-center">Score</th>
+                                    <th class="pb-6 px-4 text-center">Statut IA</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800">
+                                <template x-for="t in dbTransactions.slice(0, 10)" :key="t._id">
+                                    <tr class="hover:bg-slate-800/30 transition">
+                                        <td class="py-5 px-4 text-xs text-slate-400" x-text="t.transaction_id || t._id.substring(0, 8)"></td>
+                                        <td class="py-5 px-4">
+                                            <div class="flex flex-col">
+                                                <span class="font-bold text-slate-300" x-text="t.user_id"></span>
+                                                <span class="text-[9px] text-slate-500" x-text="(t.first_name || '') + ' ' + (t.last_name || '')"></span>
+                                            </div>
+                                        </td>
+                                        <td class="py-5 px-4 text-right text-slate-400" x-text="(t.amount || t.Amount || 0).toFixed(2) + ' €'"></td>
+                                        <td class="py-5 px-4 text-center text-slate-400" x-text="((t.risk_score || 0) * 100).toFixed(1) + '%'"></td>
+                                        <td class="py-5 px-4 text-center">
+                                            <span class="text-[9px] font-black px-3 py-1.5 rounded-full border uppercase"
+                                                  :class="(t.prediction === 1 || t.is_fraud === 1 || t.Class === 1 || t.fraud === 1) ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'"
+                                                  x-text="(t.prediction === 1 || t.is_fraud === 1 || t.Class === 1 || t.fraud === 1) ? 'Fraude' : 'Normal'"></span>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                        <p x-show="dbTransactions.length === 0" class="text-center text-slate-500 text-sm py-8">Aucune transaction en base pour le moment.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PAGE: MODELS COMPARISON -->
+        <section x-show="page === 'models'" x-cloak x-transition>
+            <div class="text-center mb-16">
+                <h2 class="text-3xl font-black mb-4">Comparaison des Modèles IA</h2>
+                <p class="text-slate-500">Analyse des performances sur le dataset Credit Card Fraud.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <template x-for="m in modelStats">
+                    <div class="card p-8 hover:border-violet-500/40 transition">
+                        <div class="flex justify-between items-start mb-6">
+                            <h5 class="text-xl font-bold pastel-violet" x-text="m.model"></h5>
+                            <span class="text-[9px] font-black px-2 py-1 rounded-full border border-slate-700"
+                                  :class="m.smote ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-500 bg-slate-800'"
+                                  x-text="m.smote ? 'SMOTE' : 'BRUT'"></span>
+                        </div>
+                        <div class="space-y-6">
+                            <div>
+                                <div class="flex justify-between text-xs font-bold mb-2"><span>F1-SCORE</span><span x-text="(m.f1 * 100).toFixed(1) + '%'"></span></div>
+                                <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden"><div class="bg-violet-500 h-full" :style="'width: ' + (m.f1 * 100) + '%'"></div></div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <div class="text-[9px] text-slate-500 uppercase font-bold">Précision</div>
+                                    <div class="text-sm font-mono text-slate-300" x-text="(m.precision * 100).toFixed(1) + '%'"></div>
+                                </div>
+                                <div>
+                                    <div class="text-[9px] text-slate-500 uppercase font-bold">Rappel</div>
+                                    <div class="text-sm font-mono text-slate-300" x-text="(m.recall * 100).toFixed(1) + '%'"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs font-bold mb-2"><span>ACCURACY</span><span x-text="(m.acc * 100).toFixed(2) + '%'"></span></div>
+                                <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden"><div class="bg-emerald-500/40 h-full" :style="'width: ' + (m.acc * 100) + '%'"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <div class="mt-16">
+                <h4 class="text-2xl font-black mb-8 text-center">Rôle de chaque modèle dans l'application</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="card p-8 border-violet-500/30">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <h5 class="text-lg font-bold pastel-violet">Random Forest</h5>
+                            <span class="text-[9px] font-black uppercase bg-violet-500/20 text-violet-300 px-3 py-1 rounded-full border border-violet-500/30">Production</span>
+                        </div>
+                        <p class="text-sm text-slate-400 mb-4">Modèle utilisé pour classer toutes les transactions (Audit de fichier, Live Test, Saisie manuelle). Il agrège 100 arbres de décision.</p>
+                        <p class="text-xs text-emerald-400 mb-1"><i class="fas fa-check mr-2"></i>Gère le non-linéaire, résiste au sur-apprentissage, gère le déséquilibre avec SMOTE</p>
+                        <p class="text-xs text-red-400"><i class="fas fa-xmark mr-2"></i>Moins interprétable qu'un arbre unique, plus lourd à calculer</p>
+                    </div>
+
+                    <div class="card p-8">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <h5 class="text-lg font-bold pastel-violet">Decision Tree</h5>
+                            <span class="text-[9px] font-black uppercase bg-slate-700/50 text-slate-300 px-3 py-1 rounded-full border border-slate-600">Référence</span>
+                        </div>
+                        <p class="text-sm text-slate-400 mb-4">Sert de modèle de base (baseline) : il segmente les transactions par des règles « si… alors » (montant, heure, V14…).</p>
+                        <p class="text-xs text-emerald-400 mb-1"><i class="fas fa-check mr-2"></i>Très interprétable et rapide</p>
+                        <p class="text-xs text-red-400"><i class="fas fa-xmark mr-2"></i>Sur-apprend, instable, faible face au déséquilibre</p>
+                    </div>
+
+                    <div class="card p-8">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <h5 class="text-lg font-bold pastel-violet">KNN</h5>
+                            <span class="text-[9px] font-black uppercase bg-slate-700/50 text-slate-300 px-3 py-1 rounded-full border border-slate-600">Comparaison</span>
+                        </div>
+                        <p class="text-sm text-slate-400 mb-4">Classe une transaction selon ses k plus proches voisins (par distance).</p>
+                        <p class="text-xs text-emerald-400 mb-1"><i class="fas fa-check mr-2"></i>Simple, aucun entraînement préalable</p>
+                        <p class="text-xs text-red-400"><i class="fas fa-xmark mr-2"></i>Lent sur gros volumes, sensible à l'échelle et au déséquilibre</p>
+                    </div>
+
+                    <div class="card p-8">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <h5 class="text-lg font-bold pastel-violet">SVM</h5>
+                            <span class="text-[9px] font-black uppercase bg-slate-700/50 text-slate-300 px-3 py-1 rounded-full border border-slate-600">Comparaison</span>
+                        </div>
+                        <p class="text-sm text-slate-400 mb-4">Cherche la frontière (hyperplan) qui sépare au mieux fraude et normal.</p>
+                        <p class="text-xs text-emerald-400 mb-1"><i class="fas fa-check mr-2"></i>Bon sur petits jeux de données et frontières complexes</p>
+                        <p class="text-xs text-red-400"><i class="fas fa-xmark mr-2"></i>Coût élevé sur gros volumes, probabilités mal calibrées</p>
+                    </div>
+
+                    <div class="card p-8 border-amber-500/20">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <h5 class="text-lg font-bold pastel-violet">Isolation Forest</h5>
+                            <span class="text-[9px] font-black uppercase bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full border border-amber-500/30">Anomalies</span>
+                        </div>
+                        <p class="text-sm text-slate-400 mb-4">Détection d'anomalies non supervisée : repère les comportements atypiques sans étiquettes, en complément.</p>
+                        <p class="text-xs text-emerald-400 mb-1"><i class="fas fa-check mr-2"></i>Détecte les fraudes inédites, rapide, sans labels</p>
+                        <p class="text-xs text-red-400"><i class="fas fa-xmark mr-2"></i>Pas de probabilité de fraude fiable, moins précis avec labels</p>
+                    </div>
+
+                    <div class="card p-8 bg-slate-800/30 border-slate-800">
+                        <h5 class="text-lg font-bold pastel-violet mb-4">K-Means (Clustering)</h5>
+                        <p class="text-sm text-slate-400 mb-4">Segmente les utilisateurs en profils comportementaux (Analytique) et signale ceux qui s'éloignent trop du centre de leur cluster.</p>
+                        <p class="text-xs text-emerald-400 mb-1"><i class="fas fa-check mr-2"></i>Détecte les profils utilisateurs inhabituels sans supervision</p>
+                        <p class="text-xs text-red-400"><i class="fas fa-xmark mr-2"></i>Ne prédit pas la fraude transaction par transaction</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-16 card p-10 bg-slate-800/30 border-violet-500/30">
+                <h4 class="text-xl font-bold mb-6">Comment choisit-on le « bon » modèle ?</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-10 text-sm text-slate-400 leading-relaxed">
+                    <div>
+                        <p class="mb-4"><strong class="text-slate-200">Métrique de décision : le F1-Score de la classe « fraude ».</strong> On ne choisit PAS le modèle sur l'accuracy, car le jeu de données est fortement déséquilibré (~0,17 % de fraudes) : un modèle qui répond « tout est normal » aurait 99,8 % d'accuracy mais raterait 100 % des fraudes (F1 = 0).</p>
+                        <p><strong class="text-slate-200">Règle de sélection :</strong> on retient le modèle qui <strong class="text-violet-300">maximise le F1-Score</strong> (compromis précision/rappel sur la classe minoritaire), l'accuracy ne servant que de critère secondaire.</p>
+                    </div>
+                    <div>
+                        <p class="mb-4"><strong class="text-slate-200">Pourquoi le Random Forest et pas un autre ?</strong> Il combine le meilleur F1-Score, la robustesse au déséquilibre et la gestion des relations non-linéaires entre V1-V28, le montant et le temps.</p>
+                        <p class="mb-2"><strong class="text-slate-200">Pourquoi écarter les autres ?</strong></p>
+                        <ul class="list-disc list-inside space-y-1">
+                            <li><strong class="text-slate-300">Decision Tree</strong> : sur-apprentissage, peu fiable.</li>
+                            <li><strong class="text-slate-300">KNN / SVM</strong> : lents sur gros volumes, instables face au déséquilibre.</li>
+                            <li><strong class="text-slate-300">Isolation Forest</strong> : non supervisé, pas de probabilité fiable → utilisé en complément.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PAGE: HISTORIQUE -->
+        <section x-show="page === 'history'" x-cloak x-transition>
+            <div class="max-w-6xl mx-auto">
+                <div class="flex flex-col md:flex-row justify-between items-end gap-6 mb-12">
+                    <div>
+                        <h2 class="text-3xl font-black mb-4">Historique des Transactions</h2>
+                        <p class="text-slate-500 text-sm">Consultez et recherchez toutes les transactions enregistrées en base.</p>
+                    </div>
+                    <div class="w-full md:w-96 relative">
+                        <i class="fas fa-search absolute left-5 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                        <input type="text" x-model="searchQuery" @input.debounce.500ms="loadDbTransactions(searchQuery)" 
+                               placeholder="Rechercher par ID ou Nom..." 
+                               class="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 pl-14 pr-6 text-white focus:border-violet-500 outline-none transition shadow-lg shadow-black/20">
+                    </div>
+                </div>
+
+                <div class="card p-8 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead class="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-800">
+                                <tr>
+                                    <th class="pb-6 px-4">Date</th>
+                                    <th class="pb-6 px-4">ID Transaction</th>
+                                    <th class="pb-6 px-4">Utilisateur</th>
+                                    <th class="pb-6 px-4 text-right">Montant</th>
+                                    <th class="pb-6 px-4 text-center">Score</th>
+                                    <th class="pb-6 px-4 text-center">Statut IA</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800">
+                                <template x-for="t in dbTransactions" :key="t._id">
+                                    <tr @click="selectedTx = t" class="hover:bg-slate-800/30 transition cursor-pointer group">
+                                        <td class="py-5 px-4 text-xs text-slate-500" x-text="t.timestamp ? new Date(t.timestamp).toLocaleString() : 'Date inconnue'"></td>
+                                        <td class="py-5 px-4 text-xs font-mono text-violet-300 group-hover:text-violet-400" x-text="t.transaction_id || t._id.substring(0, 8)"></td>
+                                        <td class="py-5 px-4">
+                                            <div class="flex flex-col">
+                                                <span class="font-bold text-slate-300" x-text="t.user_id"></span>
+                                                <span class="text-[10px] text-slate-500" x-text="(t.first_name || '') + ' ' + (t.last_name || '')"></span>
+                                            </div>
+                                        </td>
+                                        <td class="py-5 px-4 text-right text-slate-300" x-text="(t.amount || t.Amount || 0).toFixed(2) + ' €'"></td>
+                                        <td class="py-5 px-4 text-center">
+                                            <div class="flex items-center justify-center space-x-2">
+                                                <div class="w-12 bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                                    <div class="h-full" :class="t.risk_score > 0.5 ? 'bg-red-500' : 'bg-emerald-500'" :style="'width: ' + ((t.risk_score || 0) * 100) + '%'"></div>
+                                                </div>
+                                                <span class="text-[10px] font-bold text-slate-400" x-text="((t.risk_score || 0) * 100).toFixed(1) + '%'"></span>
+                                            </div>
+                                        </td>
+                                        <td class="py-5 px-4 text-center">
+                                            <span class="text-[9px] font-black px-3 py-1.5 rounded-full border uppercase"
+                                                  :class="(t.prediction === 1 || t.is_fraud === 1 || t.Class === 1 || t.fraud === 1) ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'"
+                                                  x-text="(t.prediction === 1 || t.is_fraud === 1 || t.Class === 1 || t.fraud === 1) ? 'Fraude' : 'Normal'"></span>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                        <div x-show="dbTransactions.length === 0" class="text-center py-20">
+                            <i class="fas fa-database text-4xl text-slate-700 mb-4"></i>
+                            <p class="text-slate-500 text-sm">Aucune transaction trouvée.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION: EXPLICATIONS BIG DATA & SPARK (S'affiche en bas de Home ou Dashboard) -->
+        <section x-show="page === 'home' || page === 'dashboard'" x-cloak x-transition class="mt-32">
+            <div class="max-w-6xl mx-auto">
+                <div class="text-center mb-16">
+                    <h2 class="text-3xl font-black mb-4">Comprendre l'Architecture</h2>
+                    <p class="text-slate-500">Big Data, Spark et Intelligence Artificielle.</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="card p-10 border-blue-500/20 bg-blue-500/5">
+                        <div class="w-14 h-14 bg-blue-500/20 text-blue-400 rounded-2xl flex items-center justify-center text-2xl mb-6">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <h4 class="text-xl font-bold mb-4">C'est quoi le Big Data ici ?</h4>
+                        <p class="text-slate-400 text-sm leading-relaxed">
+                            Dans ce projet, le "Big Data" représente la simulation de millions de transactions bancaires. Un système réel génère des milliers d'événements par seconde. Le script <code class="text-blue-300">generate_big_data.py</code> permet de créer ces volumes massifs (ex: 5 millions de lignes) pour tester la résistance de la base MongoDB et l'efficacité des algorithmes de détection sur des données à grande échelle.
+                        </p>
+                    </div>
+
+                    <div class="card p-10 border-orange-500/20 bg-orange-500/5">
+                        <div class="w-14 h-14 bg-orange-500/20 text-orange-400 rounded-2xl flex items-center justify-center text-2xl mb-6">
+                            <i class="fab fa-uncharted"></i>
+                        </div>
+                        <h4 class="text-xl font-bold mb-4">À quoi sert Apache Spark ?</h4>
+                        <p class="text-slate-400 text-sm leading-relaxed">
+                            Spark est un moteur de traitement distribué. Contrairement à un script classique qui traite les données ligne par ligne, Spark découpe le fichier de 5 millions de transactions en petits morceaux et les traite en parallèle sur plusieurs processeurs. Il effectue ici le nettoyage, la normalisation (Min-Max) et l'extraction de caractéristiques (ex: détecter si une transaction a lieu la nuit) de manière ultra-rapide.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PAGE: AUDIT -->
+        <section x-show="page === 'audit'" x-cloak x-transition>
+            <div class="max-w-4xl mx-auto">
+                <div class="card p-16 text-center border-dashed border-2 border-slate-700 bg-transparent">
+                    <input type="file" @change="handleFileUpload" class="absolute inset-0 opacity-0 cursor-pointer" id="audit-file">
+                    <div class="w-24 h-24 bg-violet-500/10 text-violet-500 rounded-3xl flex items-center justify-center mx-auto text-4xl mb-8 border border-violet-500/20">
+                        <i class="fas fa-file-import"></i>
+                    </div>
+                    <h3 class="text-2xl font-black mb-4">Audit de Fichier Batch</h3>
+                    <p class="text-slate-500 mb-10">Glissez-déposez votre fichier JSON/CSV pour une analyse massive.</p>
+                    <label for="audit-file" class="bg-pastel-violet text-white px-10 py-5 rounded-2xl font-black cursor-pointer inline-block">
+                        <span x-text="isUploading ? 'Traitement IA en cours...' : 'Sélectionner un fichier'"></span>
+                    </label>
+                </div>
+
+                <template x-if="lastAnalysis">
+                    <div class="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <!-- Result Card -->
+                        <div class="bg-slate-900 text-white p-10 rounded-[40px] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-8">
+                            <div class="flex items-center space-x-6">
+                                <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-2xl">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-2xl font-bold" x-text="lastAnalysis.filename"></h3>
+                                    <p class="text-slate-400"><span x-text="lastAnalysis.frauds_detected"></span> fraudes identifiées sur <span x-text="lastAnalysis.total_rows"></span> lignes.</p>
+                                </div>
+                            </div>
+                            <div class="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+                                <button @click="downloadPDF()" class="bg-white text-slate-900 px-8 py-4 rounded-2xl font-black hover:bg-slate-100 transition flex items-center justify-center">
+                                    <i class="fas fa-file-pdf mr-3 text-red-600"></i>Télécharger PDF
+                                </button>
+                                <button @click="showEmailField = !showEmailField" class="bg-pastel-violet text-white px-8 py-4 rounded-2xl font-black hover:bg-violet-600 transition flex items-center justify-center">
+                                    <i class="fas fa-envelope mr-3"></i>Envoyer par Email
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Inline Email Field -->
+                        <div x-show="showEmailField" x-cloak x-transition class="card p-8 border-violet-500/30 bg-violet-500/5 max-w-2xl mx-auto">
+                            <h4 class="font-bold mb-4">Destinataire du rapport</h4>
+                            <div class="flex gap-4">
+                                <input type="email" x-model="targetEmail" placeholder="exemple@gmail.com" class="flex-1 bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-violet-500 outline-none">
+                                <button @click="sendEmail()" class="bg-pastel-violet px-8 rounded-xl font-bold text-white hover:bg-violet-600 transition disabled:opacity-50" :disabled="isSendingEmail">
+                                    <span x-text="isSendingEmail ? 'Envoi...' : 'Envoyer'"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+            ? `http://${window.location.hostname}:8000` 
+            : `http://${window.location.host.split(':')[0]}:8000`;
+
+        console.log("API URL detected:", API_URL);
+
+        function fraudApp() {
+            return {
+                page: 'home',
+                stats: { total: 0, frauds: 0, amount: 0, anomaliesCount: 0 },
+                anomalies: [],
+                modelStats: [],
+                testTx: { user_id: 'U' + Math.floor(Math.random()*10000), Amount: 120.50, Time: 45000, V_features: {} },
+                predictionResult: null,
+                manualTx: { user_id: '', first_name: '', last_name: '', Time: 0, Amount: 0, V_features: {} },
+                manualResult: null,
+                manualSubmitting: false,
+                manualSaved: false,
+                manualSaveMessage: '',
+                dbTransactions: [],
+                searchQuery: '',
+                selectedTx: null,
+                lastAnalysis: null,
+                isUploading: false,
+                showEmailField: false,
+                targetEmail: '',
+                isSendingEmail: false,
+                charts: {},
+                authUser: null,
+                authToken: localStorage.getItem('ikram_token') || '',
+                authMode: 'login',
+                authForm: { username: '', email: '', password: '' },
+                authError: '',
+                authLoading: false,
+
+                init() {
+                    console.log("Application initialized");
+                    for(let i=1; i<=28; i++) this.testTx.V_features['V'+i] = (Math.random()*2 - 1).toFixed(4);
+                    const savedUser = localStorage.getItem('ikram_user');
+                    if (this.authToken && savedUser) {
+                        try {
+                            this.authUser = JSON.parse(savedUser);
+                            this.verifySession();
+                        } catch (e) {
+                            this.clearAuth();
+                        }
+                    }
+                },
+
+                async verifySession() {
+                    try {
+                        const res = await fetch(`${API_URL}/auth/me`, { headers: { 'Authorization': 'Bearer ' + this.authToken } });
+                        if (!res.ok) this.clearAuth();
+                    } catch (err) {
+                        console.error("Vérification de session échouée:", err);
+                    }
+                },
+
+                clearAuth() {
+                    this.authUser = null;
+                    this.authToken = '';
+                    localStorage.removeItem('ikram_token');
+                    localStorage.removeItem('ikram_user');
+                },
+
+                async doLogin() {
+                    this.authError = '';
+                    this.authLoading = true;
+                    try {
+                        const res = await fetch(`${API_URL}/auth/login`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: this.authForm.email, password: this.authForm.password })
+                        });
+                        const data = await res.json();
+                        if (!res.ok) { this.authError = data.detail || "Connexion impossible."; return; }
+                        this.finishAuth(data);
+                    } catch (err) {
+                        console.error("Login error:", err);
+                        this.authError = "Erreur réseau : le serveur est-il démarré ?";
+                    } finally {
+                        this.authLoading = false;
+                    }
+                },
+
+                async doRegister() {
+                    this.authError = '';
+                    this.authLoading = true;
+                    try {
+                        const res = await fetch(`${API_URL}/auth/register`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ username: this.authForm.username, email: this.authForm.email, password: this.authForm.password })
+                        });
+                        const data = await res.json();
+                        if (!res.ok) { this.authError = data.detail || "Inscription impossible."; return; }
+                        this.finishAuth(data);
+                    } catch (err) {
+                        console.error("Register error:", err);
+                        this.authError = "Erreur réseau : le serveur est-il démarré ?";
+                    } finally {
+                        this.authLoading = false;
+                    }
+                },
+
+                finishAuth(data) {
+                    this.authToken = data.token;
+                    this.authUser = data.user;
+                    localStorage.setItem('ikram_token', data.token);
+                    localStorage.setItem('ikram_user', JSON.stringify(data.user));
+                    this.authForm = { username: '', email: '', password: '' };
+                    this.authMode = 'login';
+                    this.page = 'home';
+                },
+
+                async doLogout() {
+                    try {
+                        await fetch(`${API_URL}/auth/logout`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + this.authToken } });
+                    } catch (err) {
+                        console.error("Logout error:", err);
+                    }
+                    this.clearAuth();
+                },
+
+                async changePage(newPage) {
+                    console.log("Changing page to:", newPage);
+                    this.page = newPage;
+                    if (newPage === 'dashboard') {
+                        setTimeout(() => this.initDashboard(), 100);
+                    }
+                },
+
+                async initDashboard() {
+                    console.log("Loading dashboard data...");
+                    try {
+                        const overviewRes = await fetch(`${API_URL}/stats/overview`);
+                        const overview = await overviewRes.json();
+                        this.stats.total = overview.total_transactions;
+                        this.stats.frauds = overview.total_frauds;
+                        this.stats.amount = overview.total_amount;
+
+                        const chartRes = await fetch(`${API_URL}/stats/charts`);
+                        const chartData = await chartRes.json();
+
+                        const anomaliesRes = await fetch(`${API_URL}/stats/anomalies`);
+                        this.anomalies = await anomaliesRes.json();
+                        this.stats.anomaliesCount = this.anomalies.length;
+
+                        this.renderCharts(chartData);
+                    } catch (err) {
+                        console.error("Dashboard error:", err);
+                    }
+                },
+
+                async fetchModels() {
+                    this.page = 'models';
+                    console.log("Fetching model stats...");
+                    try {
+                        const res = await fetch(`${API_URL}/stats/models`);
+                        this.modelStats = await res.json();
+                    } catch (err) {
+                        console.error("Error fetching models:", err);
+                    }
+                },
+
+                async runPrediction() {
+                    console.log("Running real-time prediction...");
+                    try {
+                        const res = await fetch(`${API_URL}/predict`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.testTx)
+                        });
+                        this.predictionResult = await res.json();
+                    } catch (err) {
+                        console.error("Prediction error:", err);
+                        alert("Erreur de prédiction");
+                    }
+                },
+
+                openManual() {
+                    this.page = 'manual';
+                    this.manualResult = null;
+                    this.manualSaved = false;
+                    this.manualSaveMessage = '';
+                    if (Object.keys(this.manualTx.V_features).length === 0) {
+                        this.resetManualV();
+                    }
+                    this.loadDbTransactions();
+                },
+
+                openHistory() {
+                    this.page = 'history';
+                    this.searchQuery = '';
+                    this.loadDbTransactions();
+                },
+
+                resetManualV() {
+                    for (let i = 1; i <= 28; i++) this.manualTx.V_features['V' + i] = 0;
+                },
+
+                async loadDbTransactions(query = '') {
+                    try {
+                        const url = query ? `${API_URL}/transactions?q=${encodeURIComponent(query)}` : `${API_URL}/transactions`;
+                        const res = await fetch(url);
+                        this.dbTransactions = await res.json();
+                    } catch (err) {
+                        console.error("DB transactions error:", err);
+                    }
+                },
+
+                async submitManual() {
+                    console.log("Saving manual transaction to database...");
+                    this.manualSubmitting = true;
+                    this.manualResult = null;
+                    this.manualSaved = false;
+                    try {
+                        // On s'assure que V_features est bien transmis
+                        const payload = {
+                            user_id: this.manualTx.user_id || ('U' + Math.floor(Math.random() * 10000)),
+                            first_name: this.manualTx.first_name || '',
+                            last_name: this.manualTx.last_name || '',
+                            Time: parseFloat(this.manualTx.Time) || 0,
+                            Amount: parseFloat(this.manualTx.Amount) || 0,
+                            V_features: { ...this.manualTx.V_features }
+                        };
+                        for (let i = 1; i <= 28; i++) {
+                            payload.V_features['V' + i] = parseFloat(this.manualTx.V_features['V' + i]) || 0;
+                        }
+                        const res = await fetch(`${API_URL}/transactions`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        if (!res.ok) throw new Error("Erreur serveur");
+                        const data = await res.json();
+                        this.manualResult = data.transaction;
+                        this.manualSaved = data.saved;
+                        this.manualSaveMessage = data.message;
+                        this.loadDbTransactions();
+                    } catch (err) {
+                        console.error("Manual transaction error:", err);
+                        alert("Erreur lors de l'enregistrement de la transaction");
+                    } finally {
+                        this.manualSubmitting = false;
+                    }
+                },
+
+                renderCharts(data) {
+                    console.log("Rendering charts...");
+                    if (this.charts.hourly) this.charts.hourly.destroy();
+                    if (this.charts.cluster) this.charts.cluster.destroy();
+
+                    const chartOptions = {
+                        maintainAspectRatio: false,
+                        responsive: true,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { display: false }, border: { display: false }, ticks: { color: '#64748b' } },
+                            y: { grid: { color: '#334155' }, border: { display: false }, ticks: { color: '#64748b' } }
+                        }
+                    };
+
+                    const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
+                    this.charts.hourly = new Chart(hourlyCtx, {
+                        type: 'line',
+                        data: {
+                            labels: Object.keys(data.hourly_fraud),
+                            datasets: [{
+                                data: Object.values(data.hourly_fraud),
+                                borderColor: '#a78bfa',
+                                backgroundColor: (context) => {
+                                    const gradient = context.chart.ctx.createLinearGradient(0, 0, 0, 300);
+                                    gradient.addColorStop(0, 'rgba(167, 139, 250, 0.2)');
+                                    gradient.addColorStop(1, 'rgba(167, 139, 250, 0)');
+                                    return gradient;
+                                },
+                                fill: true,
+                                tension: 0.4,
+                                pointRadius: 0
+                            }]
+                        },
+                        options: chartOptions
+                    });
+
+                    const clusterCtx = document.getElementById('clusterChart').getContext('2d');
+                    this.charts.cluster = new Chart(clusterCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Normal', 'High Activity', 'Whales', 'At-Risk'],
+                            datasets: [{
+                                data: Object.values(data.cluster_dist),
+                                backgroundColor: ['#10b981', '#7c3aed', '#8b5cf6', '#f59e0b'],
+                                borderWidth: 0,
+                                hoverOffset: 10
+                            }]
+                        },
+                        options: { 
+                            maintainAspectRatio: false, 
+                            cutout: '75%', 
+                            plugins: { 
+                                legend: { 
+                                    display: true, 
+                                    position: 'bottom', 
+                                    labels: { color: '#64748b', usePointStyle: true, padding: 20 } 
+                                } 
+                            } 
+                        }
+                    });
+                },
+
+                async handleFileUpload(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    console.log("Uploading file for audit:", file.name);
+                    this.isUploading = true;
+                    this.lastAnalysis = null;
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    try {
+                        const response = await fetch(`${API_URL}/analyze-file`, { method: 'POST', body: formData });
+                        if (!response.ok) throw new Error("Analyse échouée");
+                        this.lastAnalysis = await response.json();
+                        console.log("Analysis complete:", this.lastAnalysis);
+                    } catch (err) {
+                        console.error("Upload error:", err);
+                        alert("Erreur lors de l'analyse du fichier");
+                    } finally {
+                        this.isUploading = false;
+                        e.target.value = '';
+                    }
+                },
+
+                async downloadPDF() {
+                    console.log("Requesting PDF download...");
+                    try {
+                        const response = await fetch(`${API_URL}/export-pdf`);
+                        if (!response.ok) {
+                            const error = await response.json();
+                            throw new Error(error.detail || "Erreur serveur");
+                        }
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = url;
+                        a.download = `Rapport_Ikram_Prediction_${new Date().toISOString().split('T')[0]}.pdf`;
+                        document.body.appendChild(a);
+                        a.click();
+                        setTimeout(() => {
+                            window.URL.revokeObjectURL(url);
+                            document.body.removeChild(a);
+                        }, 200);
+                        console.log("PDF download triggered");
+                    } catch (err) {
+                        console.error("PDF download error:", err);
+                        alert("Erreur lors du téléchargement du PDF : " + err.message);
+                    }
+                },
+
+                async sendEmail() {
+                    if (!this.targetEmail) {
+                        alert("Veuillez entrer une adresse email valide.");
+                        return;
+                    }
+                    console.log("Requesting email report to:", this.targetEmail);
+                    this.isSendingEmail = true;
+                    try {
+                        const response = await fetch(`${API_URL}/send-report-email?email=${encodeURIComponent(this.targetEmail)}`, {
+                            method: 'POST'
+                        });
+                        const result = await response.json();
+                        if (response.ok) {
+                            console.log("Email sent successfully");
+                            alert("Rapport envoyé avec succès à " + this.targetEmail);
+                            this.showEmailField = false;
+                            this.targetEmail = '';
+                        } else {
+                            console.error("Email send failed:", result.detail);
+                            alert("Erreur d'envoi : " + result.detail);
+                        }
+                    } catch (err) {
+                        console.error("Email connection error:", err);
+                        alert("Erreur de connexion au serveur d'email");
+                    } finally {
+                        this.isSendingEmail = false;
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
